@@ -1,0 +1,210 @@
+version: "2"
+type: backend
+tech_stack:
+  - Python 3.11+
+  - FastAPI
+  - SQLAlchemy (async)
+  - SQLite (aiosqlite)
+  - Alembic
+  - slowapi (rate limiting)
+  - qrcode[pil]
+  - Pillow
+  - user-agents
+  - pydantic-settings
+  - validators
+  - uvicorn
+features:
+  - name: URL Management API
+    description: CRUD operations for shortened URLs with custom aliases, expiration, and soft-delete
+    files:
+      - app/routers/urls.py
+      - app/models/url.py
+      - app/schemas/url.py
+      - app/services/url_service.py
+      - app/services/shortcode.py
+      - app/exceptions.py
+    endpoints:
+      - method: POST
+        path: /api/urls
+        description: Create a new shortened URL with optional custom alias and expiration
+        auth_required: false
+        request_schema:
+          body:
+            original_url: string (required, valid HTTP/HTTPS URL)
+            custom_alias: string (optional, 3-30 chars alphanumeric + hyphens/underscores)
+            expires_at: string (optional, ISO 8601 datetime, must be future date)
+        response_schema:
+          "201":
+            id: integer
+            short_code: string
+            original_url: string
+            short_url: string
+            is_active: boolean
+            click_count: integer
+            created_at: string
+            updated_at: string
+            expires_at: string or null
+          "400": Validation error (invalid URL, reserved alias, alias too short/long)
+          "409": Conflict (custom alias already in use)
+      - method: GET
+        path: /api/urls
+        description: List all URLs with pagination
+        auth_required: false
+        request_schema:
+          query:
+            skip: integer (default 0)
+            limit: integer (default 20, max 100)
+        response_schema:
+          "200": URLResponse[]
+      - method: GET
+        path: /api/urls/{short_code}
+        description: Get URL metadata by short code
+        auth_required: false
+        response_schema:
+          "200": URLResponse
+          "404": URL not found
+      - method: PATCH
+        path: /api/urls/{short_code}
+        description: Update URL properties (original_url, expires_at, is_active)
+        auth_required: false
+        request_schema:
+          body:
+            original_url: string (optional)
+            expires_at: string (optional)
+            is_active: boolean (optional)
+        response_schema:
+          "200": URLResponse
+          "404": URL not found
+      - method: DELETE
+        path: /api/urls/{short_code}
+        description: Soft-delete URL by setting is_active to false
+        auth_required: false
+        response_schema:
+          "204": No content
+          "404": URL not found
+    depends_on: []
+  - name: URL Redirect and Click Tracking
+    description: Redirects short URLs to original URLs and records click analytics (IP, user-agent, browser, OS, referrer)
+    files:
+      - app/routers/redirect.py
+      - app/services/url_service.py
+      - app/services/analytics_service.py
+      - app/models/url.py
+      - app/models/click.py
+      - app/utils.py
+    endpoints:
+      - method: GET
+        path: /{short_code}
+        description: Redirect to original URL and record click event
+        auth_required: false
+        response_schema:
+          "307": Redirect to original_url
+          "404": URL not found
+          "410": URL expired or deactivated
+    depends_on:
+      - URL Management API
+  - name: Analytics API
+    description: Aggregated analytics summaries and raw click event data for shortened URLs
+    files:
+      - app/routers/analytics.py
+      - app/services/analytics_service.py
+      - app/models/click.py
+      - app/schemas/click.py
+    endpoints:
+      - method: GET
+        path: /api/urls/{short_code}/analytics
+        description: Get aggregated analytics summary with optional date range filtering
+        auth_required: false
+        request_schema:
+          query:
+            start_date: string (optional, ISO date)
+            end_date: string (optional, ISO date)
+        response_schema:
+          "200":
+            short_code: string
+            total_clicks: integer
+            unique_visitors: integer
+            browsers: object
+            operating_systems: object
+            referrers: object
+            clicks_by_date: object
+          "404": URL not found
+      - method: GET
+        path: /api/urls/{short_code}/clicks
+        description: List raw click events with pagination
+        auth_required: false
+        request_schema:
+          query:
+            skip: integer (default 0)
+            limit: integer (default 20, max 100)
+        response_schema:
+          "200": ClickEventResponse[]
+          "404": URL not found
+    depends_on:
+      - URL Management API
+      - URL Redirect and Click Tracking
+  - name: QR Code Generation
+    description: Generate QR code PNG images for shortened URLs
+    files:
+      - app/routers/qrcode.py
+      - app/services/qr_service.py
+      - app/config.py
+    endpoints:
+      - method: GET
+        path: /api/urls/{short_code}/qr
+        description: Generate and return QR code PNG for the short URL
+        auth_required: false
+        request_schema:
+          query:
+            size: integer (optional, 1-40, default 10)
+        response_schema:
+          "200": PNG image bytes
+          "404": URL not found
+    depends_on:
+      - URL Management API
+  - name: Health Check
+    description: Health check and utility endpoints
+    files:
+      - app/routers/health.py
+      - app/main.py
+    endpoints:
+      - method: GET
+        path: /health
+        description: Application health check
+        auth_required: false
+        response_schema:
+          "200":
+            status: string
+      - method: GET
+        path: /favicon.ico
+        description: Suppress browser favicon 404 errors
+        auth_required: false
+        response_schema:
+          "204": No content
+    depends_on: []
+  - name: Rate Limiting
+    description: IP-based rate limiting on all API endpoints using slowapi
+    files:
+      - app/dependencies.py
+      - app/main.py
+    endpoints: []
+    depends_on: []
+known_limitations:
+  - issue: No authentication or authorization - all endpoints publicly accessible
+    location: All routers
+    impact: Any client can manage any URL and view analytics
+  - issue: Analytics aggregation loads all click records into memory
+    location: app/services/analytics_service.py
+    impact: High memory usage for URLs with millions of clicks
+  - issue: SQLite not suitable for high concurrency production workloads
+    location: app/config.py
+    impact: Database locking under concurrent writes
+  - issue: Country field never populated - no IP geolocation service
+    location: app/services/analytics_service.py
+    impact: Country always shows as Unknown
+  - issue: No request/response logging middleware
+    location: app/main.py
+    impact: Difficult to troubleshoot in production
+  - issue: Referrer header stored without sanitization
+    location: app/routers/redirect.py
+    impact: Potential XSS payloads in analytics data

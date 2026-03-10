@@ -27,3 +27,5 @@ htmlcov/
 .coverage
 .vscode/
 .idea/
+.claude/
+.claude/*

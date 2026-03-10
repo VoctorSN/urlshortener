@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "post api urls create shortened url",
+    "description": "Test creating a new shortened URL with valid original_url, optional custom_alias, and optional future expires_at. Verify 201 response with correct short_code and short_url."
+  },
+  {
+    "id": "TC002",
+    "title": "get api urls list urls with pagination",
+    "description": "Test listing all shortened URLs with skip and limit query parameters. Verify 200 response with a list of URLResponse objects."
+  },
+  {
+    "id": "TC003",
+    "title": "get api urls short code retrieve url metadata",
+    "description": "Test retrieving URL metadata by short_code. Verify 200 response with URLResponse if found, or 404 if not found."
+  },
+  {
+    "id": "TC004",
+    "title": "patch api urls short code update url properties",
+    "description": "Test updating URL properties such as original_url, expires_at, and is_active by short_code. Verify 200 response with updated URLResponse or 404 if not found."
+  },
+  {
+    "id": "TC005",
+    "title": "delete api urls short code soft delete url",
+    "description": "Test soft-deleting a URL by short_code, setting is_active to false. Verify 204 No Content response or 404 if not found."
+  },
+  {
+    "id": "TC006",
+    "title": "get short code redirect to original url",
+    "description": "Test redirecting a valid active short_code to its original_url with HTTP 307 and recording a click event. Verify 404 for nonexistent codes and 410 for expired or deactivated URLs."
+  },
+  {
+    "id": "TC007",
+    "title": "get api urls short code analytics aggregated summary",
+    "description": "Test retrieving aggregated analytics summary for a short_code with optional start_date and end_date filters. Verify 200 response with correct analytics data or 404 if URL not found."
+  },
+  {
+    "id": "TC008",
+    "title": "get api urls short code clicks list raw click events",
+    "description": "Test listing raw click events for a short_code with pagination parameters skip and limit. Verify 200 response with ClickEventResponse array or 404 if URL not found."
+  },
+  {
+    "id": "TC009",
+    "title": "get api urls short code qr generate qr code png",
+    "description": "Test generating a QR code PNG image for a short_code with optional size parameter (1-40). Verify 200 response with image/png content or 404 if URL not found."
+  },
+  {
+    "id": "TC010",
+    "title": "get health check application status",
+    "description": "Test the health check endpoint to verify application availability. Verify 200 response with JSON status healthy."
+  }
+]
