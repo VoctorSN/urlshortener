@@ -6,14 +6,14 @@
 | ---------- | ------------------ |
 | Proyecto   | URL Shortener API  |
 | Version    | 1.0.0              |
-| Fecha      | 2026-03-10         |
+| Fecha      | 2026-03-11         |
 | Tipo       | Backend API (REST) |
 | Puerto     | 8000               |
 | Test scope | codebase           |
 
 ## Product Overview
 
-API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy async sobre SQLite. Permite crear URLs cortas con codigos auto-generados o aliases personalizados, redirigir mediante codigos cortos, rastrear analytics de clicks (navegador, OS, referrer, IP), generar QR codes en PNG, configurar expiracion de URLs y aplicar rate limiting por IP. La aplicacion expone documentacion interactiva via Swagger UI (`/docs`) y ReDoc (`/redoc`).
+API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy 2.0 async sobre SQLite (aiosqlite). Permite crear URLs cortas con codigos auto-generados o aliases personalizados, redirigir mediante codigos cortos, rastrear analytics de clicks (navegador, OS, referrer, IP), generar QR codes en PNG, configurar expiracion de URLs y aplicar rate limiting por IP. La aplicacion expone documentacion interactiva via Swagger UI (`/docs`) y ReDoc (`/redoc`). Utiliza Alembic para migraciones de base de datos y soporte para despliegue en Docker.
 
 ## Core Goals
 
@@ -39,20 +39,21 @@ API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy async
 
 ## Tech Stack
 
-| Componente    | Tecnologia                      |
-| ------------- | ------------------------------- |
-| Lenguaje      | Python 3.11+                    |
-| Framework     | FastAPI                         |
-| ORM           | SQLAlchemy 2.0 (async)          |
-| Base de datos | SQLite (aiosqlite)              |
-| Migraciones   | Alembic                         |
-| Rate Limiting | slowapi                         |
-| QR Codes      | qrcode + Pillow                 |
-| UA Parsing    | user-agents                     |
-| Validacion    | Pydantic v2                     |
-| Tests         | pytest + pytest-asyncio + httpx |
-| Servidor      | Uvicorn                         |
-| Container     | Docker + docker-compose         |
+| Componente    | Tecnologia                              |
+| ------------- | --------------------------------------- |
+| Lenguaje      | Python 3.11+ (Docker usa 3.12)          |
+| Framework     | FastAPI >=0.115.0                       |
+| ORM           | SQLAlchemy 2.0 (async, aiosqlite)       |
+| Base de datos | SQLite (aiosqlite >=0.20.0)             |
+| Migraciones   | Alembic >=1.13.0                        |
+| Rate Limiting | slowapi >=0.1.9                         |
+| QR Codes      | qrcode >=7.4 + Pillow >=10.0.0          |
+| UA Parsing    | user-agents >=2.2.0                     |
+| Validacion    | Pydantic v2 (pydantic-settings >=2.3.0) |
+| URL Valid.    | validators >=0.28.0                     |
+| Tests         | pytest >=8.0 + pytest-asyncio + httpx   |
+| Servidor      | Uvicorn (standard) >=0.30.0             |
+| Container     | Docker (multi-stage) + docker-compose   |
 
 ## User Flow Summary
 
@@ -114,9 +115,9 @@ API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy async
 }
 ```
 
-- `original_url` (requerido): URL valida (HttpUrl).
+- `original_url` (requerido): URL valida (Pydantic HttpUrl).
 - `custom_alias` (opcional): 3-30 chars, `^[a-zA-Z0-9_-]+$`. No puede ser una ruta reservada (`api`, `health`, `docs`, `redoc`, `openapi.json`, `favicon.ico`).
-- `expires_at` (opcional): Datetime UTC, debe ser en el futuro.
+- `expires_at` (opcional): Datetime UTC, debe ser en el futuro. Validado con `model_validator` en Pydantic.
 
 ### URLResponse
 
@@ -128,11 +129,13 @@ API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy async
   "short_url": "http://localhost:8000/abc1234",
   "is_active": true,
   "click_count": 0,
-  "created_at": "2026-03-10T12:00:00Z",
-  "updated_at": "2026-03-10T12:00:00Z",
+  "created_at": "2026-03-11T12:00:00Z",
+  "updated_at": "2026-03-11T12:00:00Z",
   "expires_at": null
 }
 ```
+
+El campo `short_url` se construye en tiempo de respuesta concatenando `settings.BASE_URL` + `/{short_code}`. Se garantiza que todos los datetimes son timezone-aware (UTC) via `model_validator`.
 
 ### URLUpdate (PATCH body)
 
@@ -167,7 +170,7 @@ Query params opcionales: `start_date`, `end_date` (date format).
 ```json
 {
   "id": 1,
-  "clicked_at": "2026-03-10T15:30:00Z",
+  "clicked_at": "2026-03-11T15:30:00Z",
   "ip_address": "192.168.1.1",
   "user_agent": "Mozilla/5.0 ...",
   "browser": "Chrome 120.0",
@@ -176,6 +179,16 @@ Query params opcionales: `start_date`, `end_date` (date format).
   "country": "Unknown"
 }
 ```
+
+### ErrorResponse
+
+```json
+{
+  "detail": "URL with short code 'xyz' not found."
+}
+```
+
+Todos los errores retornan un JSON con el campo `detail` describiendo la causa.
 
 ## Validation Criteria
 
@@ -194,7 +207,8 @@ Query params opcionales: `start_date`, `end_date` (date format).
 - Codigos inexistentes retornan 404.
 - URLs desactivadas retornan 410 Gone.
 - URLs expiradas retornan 410 Gone.
-- Cada redireccion exitosa incrementa `click_count` atomicamente y registra un ClickEvent.
+- Cada redireccion exitosa incrementa `click_count` atomicamente (`URL.click_count + 1`) y registra un `ClickEvent`.
+- Si el registro de click falla, la redireccion se completa igualmente (el error se loguea y se hace rollback).
 
 ### Analytics
 
@@ -246,13 +260,15 @@ Query params opcionales: `start_date`, `end_date` (date format).
 
 ## Error Codes
 
-| HTTP Status | Causa                                                           |
-| ----------- | --------------------------------------------------------------- |
-| 404         | Codigo corto no encontrado                                      |
-| 409         | Alias personalizado ya existe                                   |
-| 410         | URL expirada o desactivada (en redireccion)                     |
-| 422         | Validacion fallida (URL invalida, alias invalido, fecha pasada) |
-| 429         | Rate limit excedido                                             |
+| HTTP Status | Causa                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| 204         | Operacion exitosa sin contenido (DELETE, favicon.ico)                                             |
+| 307         | Redireccion temporal a URL original                                                               |
+| 404         | Codigo corto no encontrado (`URLNotFoundException`)                                               |
+| 409         | Alias personalizado ya existe (`ShortCodeExistsException`)                                        |
+| 410         | URL expirada o desactivada en redireccion (`URLExpiredException`)                                 |
+| 422         | Validacion fallida: URL invalida, alias invalido, fecha pasada (`InvalidURLException` / Pydantic) |
+| 429         | Rate limit excedido (`RateLimitExceeded` via slowapi)                                             |
 
 ## Setup para Testing
 
@@ -260,14 +276,44 @@ Query params opcionales: `start_date`, `end_date` (date format).
 # Instalar dependencias
 pip install -e ".[dev]"
 
-# Configurar variables de entorno
-cp .env.example .env
-
 # Ejecutar la aplicacion
 uvicorn app.main:app --reload --port 8000
 
 # La API estara en http://localhost:8000
 # Docs interactivos en http://localhost:8000/docs
+# ReDoc en http://localhost:8000/redoc
+```
+
+### Docker
+
+```bash
+# Build y ejecutar con docker-compose
+docker-compose up --build
+
+# O manualmente
+docker build -t urlshortener .
+docker run -p 8000:8000 urlshortener
+```
+
+### Variables de entorno (Settings)
+
+| Variable           | Default                                      | Descripcion                            |
+| ------------------ | -------------------------------------------- | -------------------------------------- |
+| DATABASE_URL       | `sqlite+aiosqlite:///./data/urlshortener.db` | URL de conexion a la base de datos     |
+| BASE_URL           | `http://localhost:8000`                      | URL base para construir URLs cortas    |
+| SHORT_CODE_LENGTH  | `7`                                          | Longitud del codigo corto generado     |
+| DEFAULT_RATE_LIMIT | `60/minute`                                  | Rate limit por defecto                 |
+| URL_MAX_AGE_DAYS   | `null`                                       | Edad maxima de URLs en dias (opcional) |
+| CORS_ORIGINS       | `["*"]`                                      | Origenes CORS permitidos               |
+
+### Ejecutar tests
+
+```bash
+# Todos los tests
+pytest
+
+# Con cobertura
+pytest --cov=app
 ```
 
 ## Instrucciones para TestSprite
