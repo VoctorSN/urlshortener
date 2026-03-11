@@ -1,10 +1,10 @@
 ---
-description: "Genera tests de API basados en el PRD. Analiza prd.md y el código fuente para crear tests pytest+httpx que cubran todos los endpoints, validaciones y casos edge documentados."
+description: "Genera tests de API basados en el PRD. Analiza prd.md y el código fuente para crear tests pytest+httpx que cubran todos los endpoints, validaciones y casos edge documentados. Escribe los tests directamente en el directorio tests/."
 agent: "agent"
-tools: ["search", "codebase"]
+tools: ["search", "codebase", "editFiles"]
 ---
 
-Genera **tests completos de la API** basándote en el documento [prd.md](../../prd.md) y los patrones de test existentes en el proyecto.
+Genera **tests completos de la API** basándote en el documento [prd.md](../../prd.md) y los patrones de test existentes en el proyecto. **Escribe los tests directamente en los archivos del directorio `tests/`**.
 
 ## Proceso
 
@@ -54,6 +54,15 @@ Genera **tests completos de la API** basándote en el documento [prd.md](../../p
 - `generate_qr_code()` — bytes PNG válidos, tamaño configurable
 - `parse_user_agent()` — parsing de navegador y OS
 
+## Salida
+
+Una vez generados los tests:
+
+1. **Lee cada archivo de test existente** en `tests/` para comparar con los tests generados.
+2. **Reemplaza el contenido completo** de cada archivo de test (`tests/test_urls.py`, `tests/test_redirect.py`, `tests/test_analytics.py`, `tests/test_qrcode.py`, `tests/test_rate_limiting.py`, `tests/test_services.py`, `tests/test_expiration.py`) con los tests generados. Si un archivo no existe, créalo.
+3. **No modifiques `tests/conftest.py`** a menos que sea estrictamente necesario agregar una nueva fixture.
+4. **Confirma** al usuario qué archivos fueron creados o actualizados.
+
 ## Reglas
 
 - Usa **pytest + pytest-asyncio + httpx** (AsyncClient con ASGITransport)
@@ -65,6 +74,7 @@ Genera **tests completos de la API** basándote en el documento [prd.md](../../p
 - Cada archivo de test debe ser autocontenido con sus imports
 - Agrupa tests en clases por feature con `@pytest.mark.asyncio`
 - Valida contra los schemas exactos documentados en el PRD (campos requeridos, tipos)
+- El resultado DEBE escribirse directamente en los archivos de `tests/`, no solo mostrarse en el chat
 
 ## Cobertura de código
 

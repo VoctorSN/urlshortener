@@ -1,10 +1,10 @@
 ---
-description: "Genera un PRD (Product Requirements Document) completo para el estado actual de la aplicación. Analiza código fuente, endpoints, modelos, schemas y configuración para documentar la aplicación tal como está implementada."
+description: "Genera un PRD (Product Requirements Document) completo para el estado actual de la aplicación. Analiza código fuente, endpoints, modelos, schemas y configuración para documentar la aplicación tal como está implementada. Escribe el resultado directamente en prd.md."
 agent: "agent"
-tools: ["search", "codebase"]
+tools: ["search", "codebase", "editFiles"]
 ---
 
-Genera un **PRD (Product Requirements Document)** completo y preciso para el estado actual de esta aplicación analizando el código fuente.
+Genera un **PRD (Product Requirements Document)** completo y preciso para el estado actual de esta aplicación analizando el código fuente y **escríbelo directamente en el archivo `prd.md`** en la raíz del proyecto.
 
 ## Instrucciones
 
@@ -36,6 +36,14 @@ Genera un **PRD (Product Requirements Document)** completo y preciso para el est
 - **Error Codes**: Tabla de códigos HTTP y sus causas
 - **Setup para Testing**: Comandos necesarios para ejecutar la aplicación
 
+## Salida
+
+Una vez generado el contenido del PRD:
+
+1. **Lee el archivo `prd.md`** en la raíz del proyecto para verificar si ya existe.
+2. **Reemplaza todo el contenido** del archivo `prd.md` con el PRD generado. Si el archivo no existe, créalo.
+3. **Confirma** al usuario que el archivo fue actualizado exitosamente.
+
 ## Reglas
 
 - Documenta SOLO lo que está implementado en el código, no lo que debería estar.
@@ -43,4 +51,4 @@ Genera un **PRD (Product Requirements Document)** completo y preciso para el est
 - Los ejemplos JSON deben reflejar los schemas reales del código.
 - Incluye todos los status codes que cada endpoint puede retornar.
 - Documenta los rate limits exactos si existen.
-- El PRD debe guardarse como `prd.md` en la raíz del proyecto.
+- El resultado DEBE escribirse directamente en el archivo `prd.md` en la raíz del proyecto, no solo mostrarse en el chat.
