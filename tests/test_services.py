@@ -14,6 +14,10 @@ class TestShortCodeGeneration:
         code = generate_short_code(length=10)
         assert len(code) == 10
 
+    def test_generate_short_code_custom_length_short(self):
+        code = generate_short_code(length=3)
+        assert len(code) == 3
+
     def test_generate_short_code_uniqueness(self):
         codes = {generate_short_code() for _ in range(1000)}
         assert len(codes) == 1000
@@ -23,6 +27,10 @@ class TestShortCodeGeneration:
             code = generate_short_code()
             assert all(c.isalnum() or c in "-_" for c in code)
 
+    def test_generate_short_code_not_empty(self):
+        code = generate_short_code()
+        assert len(code) > 0
+
 
 class TestCustomAliasValidation:
     def test_valid_alias(self):
@@ -30,8 +38,24 @@ class TestCustomAliasValidation:
         assert is_valid_custom_alias("test_123") is True
         assert is_valid_custom_alias("ABC") is True
 
+    def test_valid_alias_with_numbers(self):
+        assert is_valid_custom_alias("link123") is True
+
+    def test_valid_alias_with_hyphens_underscores(self):
+        assert is_valid_custom_alias("my-link_2") is True
+        assert is_valid_custom_alias("a-b-c") is True
+        assert is_valid_custom_alias("a_b_c") is True
+
+    def test_exact_min_length(self):
+        assert is_valid_custom_alias("abc") is True
+
+    def test_exact_max_length(self):
+        assert is_valid_custom_alias("a" * 30) is True
+
     def test_too_short(self):
         assert is_valid_custom_alias("ab") is False
+        assert is_valid_custom_alias("a") is False
+        assert is_valid_custom_alias("") is False
 
     def test_too_long(self):
         assert is_valid_custom_alias("a" * 31) is False
@@ -40,6 +64,8 @@ class TestCustomAliasValidation:
         assert is_valid_custom_alias("my link") is False
         assert is_valid_custom_alias("my@link") is False
         assert is_valid_custom_alias("my/link") is False
+        assert is_valid_custom_alias("my.link") is False
+        assert is_valid_custom_alias("my!link") is False
 
     def test_reserved_paths(self):
         assert is_valid_custom_alias("api") is False
@@ -50,6 +76,8 @@ class TestCustomAliasValidation:
     def test_reserved_case_insensitive(self):
         assert is_valid_custom_alias("API") is False
         assert is_valid_custom_alias("Health") is False
+        assert is_valid_custom_alias("DOCS") is False
+        assert is_valid_custom_alias("REDOC") is False
 
 
 class TestQRCodeGeneration:
@@ -60,13 +88,27 @@ class TestQRCodeGeneration:
 
     def test_generates_valid_png(self):
         data = generate_qr_code("https://example.com")
-        # PNG magic bytes
         assert data[:8] == b"\x89PNG\r\n\x1a\n"
 
     def test_custom_size(self):
         small = generate_qr_code("https://example.com", size=5)
         large = generate_qr_code("https://example.com", size=20)
         assert len(large) > len(small)
+
+    def test_default_size(self):
+        data = generate_qr_code("https://example.com")
+        assert isinstance(data, bytes)
+        assert len(data) > 0
+
+    def test_min_size(self):
+        data = generate_qr_code("https://example.com", size=1)
+        assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+    def test_different_data(self):
+        data1 = generate_qr_code("https://example.com/short")
+        data2 = generate_qr_code("https://example.com/a-very-long-url-path")
+        assert isinstance(data1, bytes)
+        assert isinstance(data2, bytes)
 
 
 class TestUserAgentParsing:
@@ -82,7 +124,18 @@ class TestUserAgentParsing:
         assert "Firefox" in browser
         assert "Linux" in os
 
+    def test_safari_macos(self):
+        ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        browser, os = parse_user_agent(ua)
+        assert "Safari" in browser
+        assert "Mac" in os
+
     def test_empty_string(self):
         browser, os = parse_user_agent("")
+        assert isinstance(browser, str)
+        assert isinstance(os, str)
+
+    def test_none_like_ua(self):
+        browser, os = parse_user_agent("unknown")
         assert isinstance(browser, str)
         assert isinstance(os, str)

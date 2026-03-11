@@ -4,6 +4,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base, get_db
+from app.dependencies import limiter
 from app.main import create_app
 
 
@@ -41,3 +42,11 @@ async def client(db_session: AsyncSession):
 def sample_url() -> dict[str, str]:
     """A valid URL creation payload."""
     return {"original_url": "https://www.example.com/very/long/path?query=value"}
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter() -> None:
+    """Ensure rate limit counters do not leak across tests."""
+    limiter.reset()
+    yield
+    limiter.reset()
