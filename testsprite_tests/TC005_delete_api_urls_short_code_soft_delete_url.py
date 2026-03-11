@@ -1,65 +1,70 @@
 import requests
+from datetime import datetime, timezone
 import uuid
-import time
 
 BASE_URL = "http://localhost:8000"
-API_URLS_PATH = "/api/urls"
 TIMEOUT = 30
 
+def test_delete_api_urls_short_code_soft_delete_url():
+    headers = {"Content-Type": "application/json"}
+    short_code = None
 
-def test_tc005_delete_api_urls_short_code_soft_delete_url():
-    # Step 1: Create a new URL to ensure resource for deletion test
-    short_code = f"testdelete-{uuid.uuid4().hex[:8]}"
-    original_url = "https://example.com/soft-delete-test"
+    # Create a new shortened URL to delete
     create_payload = {
-        "original_url": original_url,
-        "custom_alias": short_code
+        "original_url": "https://example.com/" + str(uuid.uuid4())
     }
-    created = False
+
     try:
         create_resp = requests.post(
-            BASE_URL + API_URLS_PATH,
+            f"{BASE_URL}/api/urls",
             json=create_payload,
+            headers=headers,
             timeout=TIMEOUT
         )
-        assert create_resp.status_code == 201, f"Failed to create URL for delete test, status: {create_resp.status_code}, body: {create_resp.text}"
-        created = True
+        assert create_resp.status_code == 201, f"Expected 201 Created, got {create_resp.status_code}"
+        create_data = create_resp.json()
+        short_code = create_data.get("short_code")
+        assert isinstance(short_code, str) and len(short_code) > 0, "short_code invalid in create response"
 
-        # Step 2: Delete (soft-delete) the URL by short_code
+        # Delete (soft-delete) the URL by short_code
         delete_resp = requests.delete(
-            f"{BASE_URL}{API_URLS_PATH}/{short_code}",
+            f"{BASE_URL}/api/urls/{short_code}",
+            headers=headers,
             timeout=TIMEOUT
         )
-        # Expect 204 No Content if found and soft-deleted
-        if delete_resp.status_code == 204:
-            # Step 3: Verify that is_active is false by retrieving URL metadata
-            get_resp = requests.get(
-                f"{BASE_URL}{API_URLS_PATH}/{short_code}",
-                timeout=TIMEOUT
-            )
-            assert get_resp.status_code == 200, f"Expected 200 after soft-delete, got {get_resp.status_code}"
-            data = get_resp.json()
-            assert "is_active" in data, "Response missing 'is_active' field"
-            assert data["is_active"] is False, "URL should be soft-deleted (is_active: false)"
-        elif delete_resp.status_code == 404:
-            # Resource not found - acceptable if somehow deleted/missing
-            pass
+        assert delete_resp.status_code == 204, f"Expected 204 No Content, got {delete_resp.status_code}"
+
+        # Verify that the URL is soft deleted by fetching metadata and checking is_active = false
+        get_resp = requests.get(
+            f"{BASE_URL}/api/urls/{short_code}",
+            headers=headers,
+            timeout=TIMEOUT
+        )
+        if get_resp.status_code == 200:
+            get_data = get_resp.json()
+            assert get_data.get("is_active") is False, "URL is_active should be False after soft-delete"
         else:
-            assert False, f"Unexpected status code from DELETE: {delete_resp.status_code} with body {delete_resp.text}"
+            assert False, f"Expected 200 on GET after delete, got {get_resp.status_code}"
+
+        # Try deleting a non-existent short_code and expect 404
+        non_existent_code = "nonexistent-" + str(uuid.uuid4())
+        delete_nonexistent_resp = requests.delete(
+            f"{BASE_URL}/api/urls/{non_existent_code}",
+            headers=headers,
+            timeout=TIMEOUT
+        )
+        assert delete_nonexistent_resp.status_code == 404, f"Expected 404 Not Found for non-existent short_code delete, got {delete_nonexistent_resp.status_code}"
+
     finally:
-        # Cleanup: try to reactivate or delete the resource forcibly if test failed earlier
-        try:
-            if created:
-                # Reactivate or delete forcibly, if needed
-                # Since soft-delete sets is_active false, we can reactivate to keep DB clean
-                patch_resp = requests.patch(
-                    f"{BASE_URL}{API_URLS_PATH}/{short_code}",
-                    json={"is_active": True},
+        # Cleanup: Ensure URL is deleted/inactive by soft-deletion if still exists
+        if short_code is not None:
+            try:
+                _ = requests.delete(
+                    f"{BASE_URL}/api/urls/{short_code}",
+                    headers=headers,
                     timeout=TIMEOUT
                 )
-                # ignore result, best effort
-        except Exception:
-            pass
+            except Exception:
+                pass
 
-
-test_tc005_delete_api_urls_short_code_soft_delete_url()
+test_delete_api_urls_short_code_soft_delete_url()

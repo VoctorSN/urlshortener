@@ -1,17 +1,22 @@
 import requests
-from datetime import datetime, timedelta
-import uuid
+import datetime
+import string
+import random
 
 BASE_URL = "http://localhost:8000"
+API_PATH = "/api/urls"
+TIMEOUT = 30
 
-def test_post_api_urls_create_shortened_url():
-    url = f"{BASE_URL}/api/urls"
-    headers = {"Content-Type": "application/json"}
 
-    # Prepare data with required and optional fields
-    original_url = "https://example.com/" + str(uuid.uuid4())
-    custom_alias = "customalias" + str(uuid.uuid4()).replace("-", "")[:8]
-    expires_at = (datetime.utcnow() + timedelta(days=7)).replace(microsecond=0).isoformat() + "Z"
+def test_create_shortened_url():
+    # Generate a random valid custom_alias for uniqueness in test
+    def random_alias(length=8):
+        chars = string.ascii_letters + string.digits + "-_"
+        return ''.join(random.choice(chars) for _ in range(length))
+
+    custom_alias = random_alias()
+    original_url = "https://example.com/long/path"
+    expires_at = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)).isoformat()
 
     payload = {
         "original_url": original_url,
@@ -19,33 +24,42 @@ def test_post_api_urls_create_shortened_url():
         "expires_at": expires_at
     }
 
-    response = None
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        assert response.status_code == 201, f"Expected 201 but got {response.status_code}. Response: {response.text}"
+        # POST to create shortened URL
+        response = requests.post(
+            BASE_URL + API_PATH,
+            json=payload,
+            timeout=TIMEOUT
+        )
+        assert response.status_code == 201, f"Expected 201 Created, got {response.status_code}"
+        data = response.json()
 
-        resp_json = response.json()
         # Validate response fields
-        assert isinstance(resp_json.get("id"), int), "Missing or invalid 'id'"
-        short_code = resp_json.get("short_code")
-        short_url = resp_json.get("short_url")
-        assert short_code == custom_alias, f"Expected short_code to be the custom_alias '{custom_alias}', got '{short_code}'"
-        assert short_url.endswith(f"/{short_code}"), f"short_url '{short_url}' does not end with '/{short_code}'"
-        assert resp_json.get("original_url") == original_url, "original_url mismatch"
-        assert resp_json.get("is_active") is True, "is_active should be True"
-        assert isinstance(resp_json.get("click_count"), int), "click_count should be integer"
-        assert isinstance(resp_json.get("created_at"), str), "created_at should be string"
-        assert isinstance(resp_json.get("updated_at"), str), "updated_at should be string"
-        assert resp_json.get("expires_at") == expires_at, "expires_at mismatch or missing"
+        # Required fields: id (int), short_code (str), original_url (str), short_url (str), is_active (bool), click_count (int), created_at (str), updated_at (str), expires_at (str or null)
+        assert isinstance(data.get("id"), int), "id must be int"
+        assert data.get("short_code") == custom_alias, "short_code must match custom_alias"
+        assert data.get("original_url") == original_url, "original_url mismatch"
+        assert isinstance(data.get("short_url"), str) and data["short_url"].endswith(custom_alias), "short_url must end with custom_alias"
+        assert data.get("is_active") is True, "is_active must be True"
+        assert isinstance(data.get("click_count"), int) and data["click_count"] == 0, "click_count must be int zero"
+        created_at = datetime.datetime.fromisoformat(data.get("created_at"))
+        updated_at = datetime.datetime.fromisoformat(data.get("updated_at"))
+        expires_at_resp = data.get("expires_at")
+        assert expires_at_resp is not None, "expires_at must be present"
+        expires_at_dt = datetime.datetime.fromisoformat(expires_at_resp)
+
+        # Validate that created_at, updated_at, expires_at are timezone-aware UTC datetimes
+        for dt_field, dt_val in [("created_at", created_at), ("updated_at", updated_at), ("expires_at", expires_at_dt)]:
+            assert dt_val.tzinfo is not None and dt_val.utcoffset().total_seconds() == 0, f"{dt_field} must be timezone-aware UTC"
 
     finally:
-        # Clean up: delete the created resource if creation succeeded
-        if response is not None and response.status_code == 201:
-            try:
-                del_resp = requests.delete(f"{BASE_URL}/api/urls/{custom_alias}", timeout=30)
-                # Expected 204 No Content or 404 if already deleted
-                assert del_resp.status_code in (204, 404), f"Unexpected delete status code {del_resp.status_code}"
-            except Exception:
-                pass
+        # Clean up: delete the created resource by custom_alias
+        delete_resp = requests.delete(
+            f"{BASE_URL}{API_PATH}/{custom_alias}",
+            timeout=TIMEOUT
+        )
+        # Accept 204 No Content or 404 Not Found if resource already deleted or missing
+        assert delete_resp.status_code in (204, 404), f"Cleanup failed: Expected 204 or 404, got {delete_resp.status_code}"
 
-test_post_api_urls_create_shortened_url()
+
+test_create_shortened_url()

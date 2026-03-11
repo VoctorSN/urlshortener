@@ -1,73 +1,65 @@
 import requests
+import datetime
 import io
 
 BASE_URL = "http://localhost:8000"
 TIMEOUT = 30
 
-def test_generate_qr_code_png_for_short_code():
-    # First create a new shortened URL to use its short_code
-    create_url = f"{BASE_URL}/api/urls"
-    payload = {
-        "original_url": "https://example.com/qr-test"
-    }
 
-    short_code = None
+def test_generate_qr_code_png():
+    headers = {"Content-Type": "application/json"}
+    # Step 1: Create a new shortened URL to get a valid short_code
+    post_url = f"{BASE_URL}/api/urls"
+    original_url = "https://example.com/qr-code-test"
+    post_data = {"original_url": original_url}
+
+    response = requests.post(post_url, json=post_data, headers=headers, timeout=TIMEOUT)
+    assert response.status_code == 201, f"Failed to create short URL: {response.text}"
+    resp_json = response.json()
+    short_code = resp_json["short_code"]
 
     try:
-        # Create a short URL
-        response = requests.post(create_url, json=payload, timeout=TIMEOUT)
-        assert response.status_code == 201, f"Expected 201 Created, got {response.status_code}"
-        json_data = response.json()
-        short_code = json_data.get("short_code")
-        assert isinstance(short_code, str) and len(short_code) > 0, "Invalid short_code in creation response"
+        qr_base_url = f"{BASE_URL}/api/urls/{short_code}/qr"
 
-        # Test with default size (should be default=10)
-        qr_url_default = f"{BASE_URL}/api/urls/{short_code}/qr"
-        resp_default = requests.get(qr_url_default, timeout=TIMEOUT)
-        if resp_default.status_code == 200:
-            # Validate Content-Type and PNG signature bytes
-            assert resp_default.headers.get("Content-Type") == "image/png", "Content-Type is not image/png"
-            content = resp_default.content
-            # PNG files start with: 89 50 4E 47 0D 0A 1A 0A
-            assert content.startswith(b"\x89PNG\r\n\x1a\n"), "Response is not a valid PNG image"
-        elif resp_default.status_code == 404:
-            # If not found, this is acceptable per spec (URL not found)
-            pass
-        else:
-            assert False, f"Unexpected status code for default size QR: {resp_default.status_code}"
+        # Test default size (no size param, should default to 10)
+        resp_default = requests.get(qr_base_url, timeout=TIMEOUT)
+        assert resp_default.status_code == 200, f"QR code PNG request failed: {resp_default.text}"
+        assert resp_default.headers.get("Content-Type") == "image/png", "Content-Type is not image/png"
+        # Validate PNG magic bytes
+        png_magic_bytes = b"\x89PNG\r\n\x1a\n"
+        assert resp_default.content.startswith(png_magic_bytes), "Response is not a valid PNG file"
 
-        # Test valid sizes 1 and 40 as edge cases
-        for size in [1, 40]:
-            qr_url_size = f"{BASE_URL}/api/urls/{short_code}/qr?size={size}"
-            resp = requests.get(qr_url_size, timeout=TIMEOUT)
-            if resp.status_code == 200:
-                assert resp.headers.get("Content-Type") == "image/png", f"Content-Type is not image/png for size {size}"
-                content = resp.content
-                assert content.startswith(b"\x89PNG\r\n\x1a\n"), f"Response is not a valid PNG image for size {size}"
-            elif resp.status_code == 404:
-                pass  # URL might be not found, acceptable
-            else:
-                assert False, f"Unexpected status code {resp.status_code} for size {size}"
+        # Test valid size parameter within range (e.g., size=20)
+        params = {"size": 20}
+        resp_size = requests.get(qr_base_url, params=params, timeout=TIMEOUT)
+        assert resp_size.status_code == 200, f"QR code PNG with size=20 failed: {resp_size.text}"
+        assert resp_size.headers.get("Content-Type") == "image/png", "Content-Type is not image/png for size=20"
+        assert resp_size.content.startswith(png_magic_bytes), "Response with size=20 is not a valid PNG file"
 
-        # Test invalid size below range (0)
-        qr_url_invalid_low = f"{BASE_URL}/api/urls/{short_code}/qr?size=0"
-        resp_low = requests.get(qr_url_invalid_low, timeout=TIMEOUT)
-        assert resp_low.status_code == 422, f"Expected 422 for size=0 but got {resp_low.status_code}"
+        # Test edge size values 1 and 40
+        for size_edge in [1, 40]:
+            resp_edge = requests.get(qr_base_url, params={"size": size_edge}, timeout=TIMEOUT)
+            assert resp_edge.status_code == 200, f"QR code PNG with size={size_edge} failed: {resp_edge.text}"
+            assert resp_edge.headers.get("Content-Type") == "image/png", f"Content-Type is not image/png for size={size_edge}"
+            assert resp_edge.content.startswith(png_magic_bytes), f"Response with size={size_edge} is not a valid PNG file"
 
-        # Test invalid size above range (41)
-        qr_url_invalid_high = f"{BASE_URL}/api/urls/{short_code}/qr?size=41"
-        resp_high = requests.get(qr_url_invalid_high, timeout=TIMEOUT)
-        assert resp_high.status_code == 422, f"Expected 422 for size=41 but got {resp_high.status_code}"
+        # Test size parameter out of valid range (e.g., 0 and 41)
+        for invalid_size in [0, 41, 100]:
+            resp_invalid = requests.get(qr_base_url, params={"size": invalid_size}, timeout=TIMEOUT)
+            # Per FastAPI Query validation, invalid parameter values return 422 Unprocessable Entity
+            assert resp_invalid.status_code == 422, f"Expected 422 for invalid size={invalid_size}, got {resp_invalid.status_code}"
 
-        # Test non-existent short_code returns 404
-        qr_url_nonexistent = f"{BASE_URL}/api/urls/nonexistentcode123/qr"
-        resp_nonexistent = requests.get(qr_url_nonexistent, timeout=TIMEOUT)
-        assert resp_nonexistent.status_code == 404, f"Expected 404 for nonexistent short_code but got {resp_nonexistent.status_code}"
+        # Test 404 for nonexistent short_code
+        nonexist_qr_url = f"{BASE_URL}/api/urls/nonexistentcode12345/qr"
+        resp_404 = requests.get(nonexist_qr_url, timeout=TIMEOUT)
+        assert resp_404.status_code == 404, f"Expected 404 for nonexistent short_code QR request, got {resp_404.status_code}"
 
     finally:
-        # Clean up by deleting the created short_code if it exists
-        if short_code:
-            del_url = f"{BASE_URL}/api/urls/{short_code}"
-            requests.delete(del_url, timeout=TIMEOUT)
+        # Cleanup: delete created short_code
+        del_url = f"{BASE_URL}/api/urls/{short_code}"
+        del_resp = requests.delete(del_url, timeout=TIMEOUT)
+        # 204 expected on successful delete, or 404 if already deleted
+        assert del_resp.status_code in (204, 404), f"Failed to delete short_code {short_code}: {del_resp.status_code}"
 
-test_generate_qr_code_png_for_short_code()
+
+test_generate_qr_code_png()

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
@@ -42,6 +42,15 @@ class URLResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     expires_at: datetime | None
+
+    @model_validator(mode="after")
+    def ensure_utc_datetimes(self) -> "URLResponse":
+        """Ensure all datetimes are timezone-aware (UTC)."""
+        for field in ("created_at", "updated_at", "expires_at"):
+            val = getattr(self, field)
+            if val is not None and val.tzinfo is None:
+                object.__setattr__(self, field, val.replace(tzinfo=timezone.utc))
+        return self
 
 
 class URLUpdate(BaseModel):

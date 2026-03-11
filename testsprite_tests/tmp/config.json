@@ -19,12 +19,12 @@
       "TC009",
       "TC010"
     ],
-    "additionalInstruction": "The server is running on localhost:8000. Use HTTP requests to test the API endpoints. The API uses FastAPI with SQLite database. Base URL is http://localhost:8000",
+    "additionalInstruction": "Server is running on localhost:8000. Base URL: http://localhost:8000\n\nCRITICAL TEST GENERATION RULES:\n1. All API datetime responses are timezone-aware UTC (with +00:00 suffix). When comparing datetimes in tests, always use timezone-aware datetimes (datetime.now(datetime.timezone.utc)), NEVER use datetime.utcnow() which creates naive datetimes.\n2. To test expired URLs (410 Gone), first create a URL with a future expires_at, then PATCH it to set expires_at to a past date. The PATCH endpoint allows setting past dates.\n3. The redirect endpoint GET /{short_code} returns 307 with Location header. Use allow_redirects=False.\n4. FastAPI Query validation returns 422 (not 400) for invalid query parameters.\n5. The click events response uses field names: clicked_at, ip_address, user_agent, browser, os, referrer, country (not timestamp/ip).\n6. Do NOT use datetime.datetime.utcnow() anywhere - it is deprecated. Use datetime.datetime.now(datetime.timezone.utc) instead.",
     "serverMode": "development",
     "envs": {
       "API_KEY": "sk-user-yPK5SsUH76sFdKLn-8v2fD1f_QfEzR3C_En1fpe4B8jfl_cQAs_1hUZUA-mW8043BLoObshuLS-xwP6ZK3esNxP8DdkwaAq1mHhnm3ErCpFVg1JLTsIxnlr01XVUwpln4mI"
     }
   },
-  "serverPort": 52911,
-  "proxy": "http://2f9884ab-884a-4710-a7f8-a8a0f23cde42:BaJP4cN7ahcsoO6xHvQEeAQTrpxoyjib@tun.testsprite.com:8080"
+  "serverPort": 58791,
+  "proxy": "http://f3140d73-ff9a-41ea-a093-56c82d094c08:wSozitK5oL4K5r6mhceTe1YksDQFV0cl@tun.testsprite.com:8080"
 }

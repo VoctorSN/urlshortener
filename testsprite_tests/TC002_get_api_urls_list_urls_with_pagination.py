@@ -1,65 +1,81 @@
 import requests
-import uuid
+import datetime
 
 BASE_URL = "http://localhost:8000"
 TIMEOUT = 30
 
 
 def test_get_api_urls_list_urls_with_pagination():
-    created_short_code = None
-    # Create a URL resource first to ensure at least one URL exists in the list
-    url_create_endpoint = f"{BASE_URL}/api/urls"
-    create_payload = {
-        "original_url": "https://example.com/test-list-" + str(uuid.uuid4()),
+    # Create a new shortened URL to ensure there's at least one URL in the list
+    create_url = f"{BASE_URL}/api/urls"
+    payload = {
+        "original_url": "https://example.com/test-get-list",
     }
+    created_short_code = None
     try:
-        create_resp = requests.post(url_create_endpoint, json=create_payload, timeout=TIMEOUT)
+        create_resp = requests.post(create_url, json=payload, timeout=TIMEOUT)
         assert create_resp.status_code == 201, f"Expected 201 Created, got {create_resp.status_code}"
-        create_data = create_resp.json()
-        created_short_code = create_data.get("short_code")
-        assert isinstance(created_short_code, str) and created_short_code != ""
+        created_data = create_resp.json()
+        created_short_code = created_data.get("short_code")
+        # Validate response fields of the created URL
+        assert isinstance(created_data.get("id"), int)
+        assert created_data.get("original_url") == payload["original_url"]
+        assert isinstance(created_data.get("short_code"), str) and created_data.get("short_code") != ""
+        assert isinstance(created_data.get("short_url"), str) and created_data.get("short_url").startswith(BASE_URL)
+        assert isinstance(created_data.get("is_active"), bool)
+        assert isinstance(created_data.get("click_count"), int)
+        # Validate created_at and updated_at are timezone aware ISO 8601 strings with +00:00
+        created_at = created_data.get("created_at")
+        updated_at = created_data.get("updated_at")
+        expires_at = created_data.get("expires_at")
+        # Parse ISO 8601 with possible fractional seconds and 'Z' timezone
+        def parse_iso_datetime(dt_str):
+            if dt_str is None:
+                return None
+            if dt_str.endswith('Z'):
+                dt_str = dt_str[:-1] + '+00:00'
+            return datetime.datetime.fromisoformat(dt_str)
 
-        # Now test listing URLs with pagination parameters
-        url_list_endpoint = f"{BASE_URL}/api/urls"
-        params = {
-            "skip": 0,
-            "limit": 20
-        }
-        list_resp = requests.get(url_list_endpoint, params=params, timeout=TIMEOUT)
-        assert list_resp.status_code == 200, f"Expected 200 OK, got {list_resp.status_code}"
-        list_data = list_resp.json()
-        assert isinstance(list_data, list), "Response is not a list"
+        dt_created_at = parse_iso_datetime(created_at)
+        dt_updated_at = parse_iso_datetime(updated_at)
+        # Check datetime timezone aware UTC (+00:00)
+        assert dt_created_at is not None and dt_created_at.tzinfo is not None and dt_created_at.utcoffset().total_seconds() == 0
+        assert dt_updated_at is not None and dt_updated_at.tzinfo is not None and dt_updated_at.utcoffset().total_seconds() == 0
+        # expires_at may be null
+        if expires_at is not None:
+            dt_expires_at = parse_iso_datetime(expires_at)
+            assert dt_expires_at is not None and dt_expires_at.tzinfo is not None and dt_expires_at.utcoffset().total_seconds() == 0
 
-        # Validate each item in the list to be URLResponse schema like
-        for item in list_data:
-            assert isinstance(item, dict), "List item is not a dict"
-            # Required keys in URLResponse response schema based on PRD:
-            expected_keys = {
-                "id", "short_code", "original_url", "short_url",
-                "is_active", "click_count", "created_at", "updated_at", "expires_at"
-            }
-            assert expected_keys.issubset(item.keys()), f"Item missing keys, got keys: {item.keys()}"
-            # Basic validations of types:
-            assert isinstance(item["id"], int), "id is not integer"
-            assert isinstance(item["short_code"], str), "short_code is not str"
-            assert isinstance(item["original_url"], str), "original_url is not str"
-            assert isinstance(item["short_url"], str), "short_url is not str"
-            assert isinstance(item["is_active"], bool), "is_active is not bool"
-            assert isinstance(item["click_count"], int), "click_count is not int"
-            assert isinstance(item["created_at"], str), "created_at is not str"
-            assert isinstance(item["updated_at"], str), "updated_at is not str"
-            # expires_at may be None or str
-            assert item["expires_at"] is None or isinstance(item["expires_at"], str), "expires_at invalid type"
+        # Now test listing all URLs with pagination
+        list_url = f"{BASE_URL}/api/urls"
+        params = {"skip": 0, "limit": 10}
+        resp = requests.get(list_url, params=params, timeout=TIMEOUT)
+        assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
+        urls = resp.json()
+        assert isinstance(urls, list), f"Expected list response, got {type(urls)}"
+        # Validate each item in list corresponds to URLResponse schema
+        for url_item in urls:
+            assert isinstance(url_item.get("id"), int)
+            assert isinstance(url_item.get("short_code"), str)
+            assert isinstance(url_item.get("original_url"), str)
+            assert isinstance(url_item.get("short_url"), str)
+            assert isinstance(url_item.get("is_active"), bool)
+            assert isinstance(url_item.get("click_count"), int)
+            # Validate date times format and timezone aware
+            created_at = url_item.get("created_at")
+            updated_at = url_item.get("updated_at")
+            expires_at = url_item.get("expires_at")
+            dt_created_at = parse_iso_datetime(created_at)
+            dt_updated_at = parse_iso_datetime(updated_at)
+            assert dt_created_at is not None and dt_created_at.tzinfo is not None and dt_created_at.utcoffset().total_seconds() == 0
+            assert dt_updated_at is not None and dt_updated_at.tzinfo is not None and dt_updated_at.utcoffset().total_seconds() == 0
+            if expires_at is not None:
+                dt_expires_at = parse_iso_datetime(expires_at)
+                assert dt_expires_at is not None and dt_expires_at.tzinfo is not None and dt_expires_at.utcoffset().total_seconds() == 0
     finally:
-        # Cleanup: delete the created URL if it exists
+        # Clean up by deleting the created URL if short_code is available
         if created_short_code:
-            delete_endpoint = f"{BASE_URL}/api/urls/{created_short_code}"
-            try:
-                del_resp = requests.delete(delete_endpoint, timeout=TIMEOUT)
-                # Accept 204 or 404 (if already deleted)
-                assert del_resp.status_code in [204, 404], f"Unexpected delete status {del_resp.status_code}"
-            except Exception:
-                pass
+            requests.delete(f"{BASE_URL}/api/urls/{created_short_code}", timeout=TIMEOUT)
 
 
 test_get_api_urls_list_urls_with_pagination()
