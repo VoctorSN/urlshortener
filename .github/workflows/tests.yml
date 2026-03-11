@@ -37,3 +37,39 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v --maxfail=1 --disable-warnings
+
+  docker-compose-smoke:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and start services
+        run: docker compose up --build -d
+
+      - name: Wait for API health endpoint
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8000/health > /dev/null; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 2
+          done
+          echo "API did not become healthy in time"
+          docker compose logs api
+          exit 1
+
+      - name: Show container status and logs
+        if: always()
+        run: |
+          docker compose ps
+          docker compose logs api
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
