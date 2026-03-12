@@ -51,7 +51,7 @@ def test_get_api_urls_short_code_clicks_list_raw_click_events():
         assert isinstance(clicks_data, list), "Clicks response is not a list"
 
         # Validate fields in each click event
-        allowed_keys = {"clicked_at", "ip_address", "user_agent", "browser", "os", "referrer", "country"}
+        allowed_keys = {"id", "clicked_at", "ip_address", "user_agent", "browser", "os", "referrer", "country"}
         # Must have at least one click, since we triggered 3 clicks
         assert len(clicks_data) >= 1, "No click events returned, expected at least one"
         for click_event in clicks_data:
