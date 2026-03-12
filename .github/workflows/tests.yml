@@ -66,11 +66,21 @@ jobs:
           docker compose logs api
           exit 1
 
-      
-      - name: Run TestSprite against local Docker
-        env:
-          TESTSPRITE_API_KEY: ${{ secrets.TESTSPRITE_API_KEY }}
-        run: npx -y @testsprite/cli run-tests --url http://localhost:8000
+      - name: Set up Python for TestSprite tests
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install requests
+
+      - name: Run TestSprite tests against local Docker
+        run: |
+          set -e
+          for f in testsprite_tests/TC*.py; do
+            echo "▶ Running $f"
+            python "$f"
+          done
 
       - name: Show container status and logs
         if: always()
