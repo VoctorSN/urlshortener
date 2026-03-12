@@ -42,7 +42,6 @@ jobs:
         run: pytest tests/ -v --maxfail=1 --disable-warnings
 
   docker-compose-smoke:
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
@@ -66,6 +65,22 @@ jobs:
           echo "API did not become healthy in time"
           docker compose logs api
           exit 1
+
+      - name: Set up Python for TestSprite tests
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install requests
+
+      - name: Run TestSprite tests against local Docker
+        run: |
+          set -e
+          for f in testsprite_tests/TC*.py; do
+            echo "▶ Running $f"
+            python "$f"
+          done
 
       - name: Show container status and logs
         if: always()

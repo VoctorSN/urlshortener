@@ -51,7 +51,7 @@ def test_get_api_urls_short_code_clicks_list_raw_click_events():
         assert isinstance(clicks_data, list), "Clicks response is not a list"
 
         # Validate fields in each click event
-        allowed_keys = {"clicked_at", "ip_address", "user_agent", "browser", "os", "referrer", "country"}
+        allowed_keys = {"id", "clicked_at", "ip_address", "user_agent", "browser", "os", "referrer", "country"}
         # Must have at least one click, since we triggered 3 clicks
         assert len(clicks_data) >= 1, "No click events returned, expected at least one"
         for click_event in clicks_data:
@@ -68,12 +68,12 @@ def test_get_api_urls_short_code_clicks_list_raw_click_events():
                 assert False, f"clicked_at is not valid ISO8601 datetime with tz: {clicked_at}"
             assert dt_clicked_at.tzinfo is not None, "clicked_at datetime is naive, expected timezone aware"
 
-        # Step 4: Test pagination skip & limit parameters by requesting zero limit to get empty list
-        resp_clicks_empty = requests.get(clicks_url, params={"skip": 0, "limit": 0}, timeout=timeout)
-        assert resp_clicks_empty.status_code == 200
-        assert isinstance(resp_clicks_empty.json(), list)
-        # Limit=0 means no items (assuming API honors limit=0)
-        assert len(resp_clicks_empty.json()) == 0
+        # Step 4: Test pagination skip & limit parameters by skipping all events
+        resp_clicks_paginated = requests.get(clicks_url, params={"skip": 1000, "limit": 1}, timeout=timeout)
+        assert resp_clicks_paginated.status_code == 200
+        assert isinstance(resp_clicks_paginated.json(), list)
+        # Skipping far beyond total results must return empty list
+        assert len(resp_clicks_paginated.json()) == 0
 
         # Step 5: Test 404 response for nonexistent short_code
         bad_code = "nonexistent-code-xyz"

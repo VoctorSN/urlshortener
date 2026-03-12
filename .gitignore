@@ -29,3 +29,5 @@ htmlcov/
 .idea/
 .claude/
 .claude/*
+venv/
+testsprite_tests/tmp/

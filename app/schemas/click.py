@@ -1,6 +1,6 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ClickEventResponse(BaseModel):
@@ -16,6 +16,13 @@ class ClickEventResponse(BaseModel):
     os: str | None
     referrer: str | None
     country: str | None
+
+    @model_validator(mode="after")
+    def ensure_utc_clicked_at(self) -> "ClickEventResponse":
+        """Ensure clicked_at is timezone-aware (UTC)."""
+        if self.clicked_at is not None and self.clicked_at.tzinfo is None:
+            object.__setattr__(self, "clicked_at", self.clicked_at.replace(tzinfo=timezone.utc))
+        return self
 
 
 class AnalyticsSummary(BaseModel):
