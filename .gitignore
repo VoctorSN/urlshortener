@@ -30,3 +30,4 @@ htmlcov/
 .claude/
 .claude/*
 venv/
+testsprite_tests/tmp/
