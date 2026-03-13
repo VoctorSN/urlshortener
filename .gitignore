@@ -29,5 +29,7 @@ htmlcov/
 .idea/
 .claude/
 .claude/*
+.atl/
 venv/
 testsprite_tests/tmp/
+engram.zip

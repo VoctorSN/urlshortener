@@ -40,6 +40,12 @@ async def redirect_to_url(
             referrer=request.headers.get("referer"),
         )
     except Exception:
-        logger.exception("Failed to record click for short_code=%s", short_code)
+        logger.exception(
+            "click_tracking_failed short_code=%s url_id=%s method=%s path=%s",
+            short_code,
+            url.id,
+            request.method,
+            request.url.path,
+        )
         await db.rollback()
     return RedirectResponse(url=original_url, status_code=307)

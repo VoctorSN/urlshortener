@@ -1,11 +1,17 @@
+from collections.abc import Generator
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.config import settings
 from app.database import Base, get_db
 from app.dependencies import limiter
 from app.main import create_app
+
+TEST_API_TOKEN = "test-api-token"
+TEST_JWT_SECRET = "test-jwt-secret-with-minimum-32-bytes"
 
 
 @pytest_asyncio.fixture
@@ -24,9 +30,38 @@ async def db_session():
     await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def configure_auth_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Use deterministic auth configuration for tests."""
+    monkeypatch.setattr(settings, "AUTH_ENABLED", True)
+    monkeypatch.setattr(settings, "API_TOKENS", [TEST_API_TOKEN])
+    monkeypatch.setattr(settings, "JWT_SECRET", TEST_JWT_SECRET)
+    monkeypatch.setattr(settings, "JWT_ALGORITHM", "HS256")
+    monkeypatch.setattr(settings, "JWT_AUDIENCE", None)
+
+
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession):
-    """Create an async test client with the test database injected."""
+    """Create an async test client with auth header and test DB injected."""
+    app = create_app()
+
+    async def override_get_db():  # type: ignore[no-untyped-def]
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    headers = {"Authorization": f"Bearer {TEST_API_TOKEN}"}
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers=headers,
+    ) as ac:
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def unauthenticated_client(db_session: AsyncSession):
+    """Create a client without auth header for auth tests."""
     app = create_app()
 
     async def override_get_db():  # type: ignore[no-untyped-def]
@@ -39,13 +74,22 @@ async def client(db_session: AsyncSession):
 
 
 @pytest.fixture
+def jwt_token() -> str:
+    """Generate a valid JWT token for auth tests."""
+    import jwt
+
+    payload = {"sub": "test-user"}
+    return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
+
+
+@pytest.fixture
 def sample_url() -> dict[str, str]:
     """A valid URL creation payload."""
     return {"original_url": "https://www.example.com/very/long/path?query=value"}
 
 
 @pytest.fixture(autouse=True)
-def reset_rate_limiter() -> None:
+def reset_rate_limiter() -> Generator[None, None, None]:
     """Ensure rate limit counters do not leak across tests."""
     limiter.reset()
     yield
