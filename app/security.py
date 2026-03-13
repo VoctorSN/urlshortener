@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import secrets
 from dataclasses import dataclass
 import jwt
@@ -8,6 +9,9 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from jwt.types import Options
 
 from app.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -64,7 +68,12 @@ def _validate_jwt(token: str) -> AuthContext | None:
             detail="JWT has expired",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
-    except InvalidTokenError:
+    except InvalidTokenError as exc:
+        logger.warning(
+            "JWT validation failed: %s (%s)",
+            exc,
+            exc.__class__.__name__,
+        )
         return None
 
     subject = str(payload.get("sub") or "jwt-user")

@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from httpx import AsyncClient
 
@@ -11,14 +13,20 @@ class TestTokenSecurity:
         assert response.status_code == 401
 
     async def test_invalid_token_rejected(
-        self, unauthenticated_client: AsyncClient, sample_url: dict
+        self,
+        unauthenticated_client: AsyncClient,
+        sample_url: dict,
+        caplog: pytest.LogCaptureFixture,
     ):
+        caplog.set_level(logging.WARNING, logger="app.security")
         response = await unauthenticated_client.post(
             "/api/urls",
             json=sample_url,
             headers={"Authorization": "Bearer invalid-token"},
         )
         assert response.status_code == 401
+        assert "JWT validation failed:" in caplog.text
+        assert "(DecodeError)" in caplog.text
 
     async def test_invalid_authorization_header_format_rejected(
         self, unauthenticated_client: AsyncClient, sample_url: dict
@@ -29,7 +37,7 @@ class TestTokenSecurity:
             headers={"Authorization": "Basic abc123"},
         )
         assert response.status_code == 401
-        assert response.headers["www-authenticate"] == "Bearer"
+        assert response.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_api_token_allows_protected_route(
         self, client: AsyncClient, sample_url: dict
