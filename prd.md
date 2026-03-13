@@ -13,7 +13,7 @@
 
 ## Product Overview
 
-API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy 2.0 async sobre SQLite (aiosqlite). Permite crear URLs cortas con codigos auto-generados o aliases personalizados, redirigir mediante codigos cortos, rastrear analytics de clicks (navegador, OS, referrer, IP), generar QR codes en PNG, configurar expiracion de URLs y aplicar rate limiting por IP. La aplicacion expone documentacion interactiva via Swagger UI (`/docs`) y ReDoc (`/redoc`). Utiliza Alembic para migraciones de base de datos y soporte para despliegue en Docker.
+API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy 2.0 async sobre PostgreSQL (asyncpg). Permite crear URLs cortas con codigos auto-generados o aliases personalizados, redirigir mediante codigos cortos, rastrear analytics de clicks (navegador, OS, referrer, IP), generar QR codes en PNG, configurar expiracion de URLs y aplicar rate limiting por IP. La aplicacion expone documentacion interactiva via Swagger UI (`/docs`) y ReDoc (`/redoc`). Utiliza Alembic para migraciones de base de datos y soporte para despliegue en Docker.
 
 ## Core Goals
 
@@ -43,8 +43,8 @@ API REST de acortador de URLs construida con FastAPI (Python) y SQLAlchemy 2.0 a
 | ------------- | --------------------------------------- |
 | Lenguaje      | Python 3.11+ (Docker usa 3.12)          |
 | Framework     | FastAPI >=0.115.0                       |
-| ORM           | SQLAlchemy 2.0 (async, aiosqlite)       |
-| Base de datos | SQLite (aiosqlite >=0.20.0)             |
+| ORM           | SQLAlchemy 2.0 (async, asyncpg)         |
+| Base de datos | PostgreSQL 16 (asyncpg >=0.30.0)        |
 | Migraciones   | Alembic >=1.13.0                        |
 | Rate Limiting | slowapi >=0.1.9                         |
 | QR Codes      | qrcode >=7.4 + Pillow >=10.0.0          |
@@ -299,7 +299,7 @@ docker run -p 8000:8000 urlshortener
 
 | Variable           | Default                                      | Descripcion                            |
 | ------------------ | -------------------------------------------- | -------------------------------------- |
-| DATABASE_URL       | `sqlite+aiosqlite:///./data/urlshortener.db` | URL de conexion a la base de datos     |
+| DATABASE_URL       | `postgresql+asyncpg://postgres:postgres@localhost:5432/urlshortener` | URL de conexion a la base de datos     |
 | BASE_URL           | `http://localhost:8000`                      | URL base para construir URLs cortas    |
 | SHORT_CODE_LENGTH  | `7`                                          | Longitud del codigo corto generado     |
 | DEFAULT_RATE_LIMIT | `60/minute`                                  | Rate limit por defecto                 |
