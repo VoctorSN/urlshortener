@@ -86,4 +86,6 @@ def test_get_api_urls_short_code_clicks_list_raw_click_events():
         resp_delete = requests.delete(delete_url, timeout=timeout)
         assert resp_delete.status_code == 204, f"Failed to delete URL, status: {resp_delete.status_code}"
 
-test_get_api_urls_short_code_clicks_list_raw_click_events()
+
+if __name__ == "__main__":
+    test_get_api_urls_short_code_clicks_list_raw_click_events()

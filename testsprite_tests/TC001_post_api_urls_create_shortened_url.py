@@ -62,4 +62,6 @@ def test_create_shortened_url():
         assert delete_resp.status_code in (204, 404), f"Cleanup failed: Expected 204 or 404, got {delete_resp.status_code}"
 
 
-test_create_shortened_url()
+
+if __name__ == "__main__":
+    test_create_shortened_url()

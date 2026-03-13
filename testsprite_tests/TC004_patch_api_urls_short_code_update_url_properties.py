@@ -64,4 +64,6 @@ def test_patch_api_urls_update_url_properties():
         requests.delete(f"{API_URLS}/{short_code}", timeout=TIMEOUT)
 
 
-test_patch_api_urls_update_url_properties()
+
+if __name__ == "__main__":
+    test_patch_api_urls_update_url_properties()

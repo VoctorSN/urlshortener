@@ -62,4 +62,6 @@ def test_generate_qr_code_png():
         assert del_resp.status_code in (204, 404), f"Failed to delete short_code {short_code}: {del_resp.status_code}"
 
 
-test_generate_qr_code_png()
+
+if __name__ == "__main__":
+    test_generate_qr_code_png()

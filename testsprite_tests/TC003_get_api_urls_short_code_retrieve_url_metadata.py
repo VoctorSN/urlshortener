@@ -70,4 +70,6 @@ def test_get_api_urls_shortcode_retrieve_url_metadata():
             delete_url(created["short_code"])
 
 
-test_get_api_urls_shortcode_retrieve_url_metadata()
+
+if __name__ == "__main__":
+    test_get_api_urls_shortcode_retrieve_url_metadata()

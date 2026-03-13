@@ -81,4 +81,6 @@ def test_get_short_code_redirect_to_original_url():
             except Exception:
                 pass
 
-test_get_short_code_redirect_to_original_url()
+
+if __name__ == "__main__":
+    test_get_short_code_redirect_to_original_url()

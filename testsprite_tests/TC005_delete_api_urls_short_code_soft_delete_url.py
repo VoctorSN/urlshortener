@@ -67,4 +67,6 @@ def test_delete_api_urls_short_code_soft_delete_url():
             except Exception:
                 pass
 
-test_delete_api_urls_short_code_soft_delete_url()
+
+if __name__ == "__main__":
+    test_delete_api_urls_short_code_soft_delete_url()

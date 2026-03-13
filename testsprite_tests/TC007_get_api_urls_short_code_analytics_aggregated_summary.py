@@ -78,4 +78,6 @@ def test_get_api_urls_short_code_analytics_aggregated_summary():
         if created_short_code:
             requests.delete(f"{BASE_URL}/api/urls/{created_short_code}", timeout=TIMEOUT)
 
-test_get_api_urls_short_code_analytics_aggregated_summary()
+
+if __name__ == "__main__":
+    test_get_api_urls_short_code_analytics_aggregated_summary()

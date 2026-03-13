@@ -21,4 +21,6 @@ def test_get_health_check_application_status():
     assert json_data["status"] == "healthy", f"Expected status 'healthy', got '{json_data['status']}'"
 
 
-test_get_health_check_application_status()
+
+if __name__ == "__main__":
+    test_get_health_check_application_status()

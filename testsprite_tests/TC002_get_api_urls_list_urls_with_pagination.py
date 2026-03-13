@@ -78,4 +78,6 @@ def test_get_api_urls_list_urls_with_pagination():
             requests.delete(f"{BASE_URL}/api/urls/{created_short_code}", timeout=TIMEOUT)
 
 
-test_get_api_urls_list_urls_with_pagination()
+
+if __name__ == "__main__":
+    test_get_api_urls_list_urls_with_pagination()
