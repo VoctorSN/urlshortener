@@ -2,6 +2,16 @@
 
 API completa de acortador de URLs construida con FastAPI, SQLAlchemy (async) y SQLite.
 
+## Indice
+
+- [Funcionalidades](#funcionalidades)
+- [Stack Tecnologico](#stack-tecnologico)
+- [Inicio Rapido](#inicio-rapido)
+- [Documentacion de la API](#documentacion-de-la-api)
+- [Tests](#tests)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Variables de Entorno](#variables-de-entorno)
+
 ## Funcionalidades
 
 - **Acortar URLs** con codigos cortos auto-generados o aliases personalizados
@@ -11,6 +21,8 @@ API completa de acortador de URLs construida con FastAPI, SQLAlchemy (async) y S
 - **Generacion de QR codes**: obtiene un PNG con el QR de tu URL corta
 - **Rate limiting**: proteccion contra abuso por IP
 - **Documentacion interactiva**: Swagger UI y ReDoc auto-generados
+
+[↑ Volver al indice](#indice)
 
 ## Stack Tecnologico
 
@@ -22,6 +34,8 @@ API completa de acortador de URLs construida con FastAPI, SQLAlchemy (async) y S
 | Migraciones      | Alembic                |
 | Tests            | pytest + httpx         |
 | Containerizacion | Docker                 |
+
+[↑ Volver al indice](#indice)
 
 ## Inicio Rapido
 
@@ -62,6 +76,8 @@ docker-compose up --build
 ```
 
 La API estara disponible en `http://localhost:8000`.
+
+[↑ Volver al indice](#indice)
 
 ## Documentacion de la API
 
@@ -105,7 +121,11 @@ curl http://localhost:8000/api/urls/mi-link/analytics
 curl -o qr.png http://localhost:8000/api/urls/mi-link/qr
 ```
 
+[↑ Volver al indice](#indice)
+
 ## Tests
+
+### Tests unitarios / de integración
 
 ```bash
 # Ejecutar todos los tests
@@ -117,6 +137,17 @@ pytest tests/ -v --cov=app --cov-report=term-missing
 # Test especifico
 pytest tests/test_urls.py -v
 ```
+
+### Tests de TestSprite (tests de caja negra contra el servidor)
+
+> **Requisito:** el servidor debe estar corriendo en `http://localhost:8000` antes de ejecutar estos tests (via `uvicorn` o `docker compose up`).
+
+```bash
+# Ejecutar los tests de TestSprite
+pytest testsprite_tests/ -v --override-ini="python_files=TC*.py test_*.py"
+```
+
+[↑ Volver al indice](#indice)
 
 ## Estructura del Proyecto
 
@@ -137,6 +168,8 @@ urlshortener/
 └── pyproject.toml
 ```
 
+[↑ Volver al indice](#indice)
+
 ## Variables de Entorno
 
 | Variable             | Default                                      | Descripcion                      |
@@ -147,3 +180,5 @@ urlshortener/
 | `DEFAULT_RATE_LIMIT` | `60/minute`                                  | Limite de peticiones por defecto |
 | `URL_MAX_AGE_DAYS`   | 1                                            | Expiracion por defecto en dias   |
 | `CORS_ORIGINS`       | `["*"]`                                      | Origenes CORS permitidos         |
+
+[↑ Volver al indice](#indice)
