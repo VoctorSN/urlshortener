@@ -72,9 +72,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        run: pip install requests
+        run: pip install pytest requests
 
-      - name: Run TestSprite tests against local Docker
+      - name: Run tests against local Docker
         run: |
           set -e
           pytest tests/ -v --maxfail=1 --disable-warnings
