@@ -297,14 +297,14 @@ docker run -p 8000:8000 urlshortener
 
 ### Variables de entorno (Settings)
 
-| Variable           | Default                                      | Descripcion                            |
-| ------------------ | -------------------------------------------- | -------------------------------------- |
+| Variable           | Default                                                              | Descripcion                            |
+| ------------------ | -------------------------------------------------------------------- | -------------------------------------- |
 | DATABASE_URL       | `postgresql+asyncpg://postgres:postgres@localhost:5432/urlshortener` | URL de conexion a la base de datos     |
-| BASE_URL           | `http://localhost:8000`                      | URL base para construir URLs cortas    |
-| SHORT_CODE_LENGTH  | `7`                                          | Longitud del codigo corto generado     |
-| DEFAULT_RATE_LIMIT | `60/minute`                                  | Rate limit por defecto                 |
-| URL_MAX_AGE_DAYS   | `null`                                       | Edad maxima de URLs en dias (opcional) |
-| CORS_ORIGINS       | `["*"]`                                      | Origenes CORS permitidos               |
+| BASE_URL           | `http://localhost:8000`                                              | URL base para construir URLs cortas    |
+| SHORT_CODE_LENGTH  | `7`                                                                  | Longitud del codigo corto generado     |
+| DEFAULT_RATE_LIMIT | `60/minute`                                                          | Rate limit por defecto                 |
+| URL_MAX_AGE_DAYS   | `null`                                                               | Edad maxima de URLs en dias (opcional) |
+| CORS_ORIGINS       | `["*"]`                                                              | Origenes CORS permitidos               |
 
 ### Ejecutar tests
 
