@@ -12,6 +12,8 @@ from app.config import settings
 
 
 logger = logging.getLogger(__name__)
+_logged_route_pattern_warnings: set[str] = set()
+_missing_auth_config_logged = False
 
 
 @dataclass(frozen=True)
@@ -82,15 +84,55 @@ def _validate_jwt(token: str) -> AuthContext | None:
 
 def _split_pattern(pattern: str) -> tuple[str | None, str]:
     value = pattern.strip()
+    if not value:
+        _warn_route_pattern_fallback(pattern=pattern, reason="empty-pattern")
+        return None, value
+
     if " " not in value:
+        if not value.startswith("/"):
+            _warn_route_pattern_fallback(
+                pattern=pattern,
+                reason="missing-leading-slash-or-method-path-format",
+            )
         return None, value
 
     method, path_pattern = value.split(" ", 1)
     method = method.strip().upper()
     path_pattern = path_pattern.strip()
     if not path_pattern:
+        _warn_route_pattern_fallback(pattern=pattern, reason="missing-path-pattern")
         return None, value
     return method, path_pattern
+
+
+def _warn_route_pattern_fallback(pattern: str, reason: str) -> None:
+    dedupe_key = f"{reason}:{pattern}"
+    if dedupe_key in _logged_route_pattern_warnings:
+        return
+
+    _logged_route_pattern_warnings.add(dedupe_key)
+    logger.warning(
+        "Auth route pattern uses fallback matching: pattern=%r reason=%s",
+        pattern,
+        reason,
+    )
+
+
+def _has_auth_mechanism_configured() -> bool:
+    has_api_tokens = any(bool(token) for token in settings.API_TOKENS)
+    return has_api_tokens or bool(settings.JWT_SECRET)
+
+
+def _log_missing_auth_configuration_once() -> None:
+    global _missing_auth_config_logged
+    if _missing_auth_config_logged:
+        return
+
+    _missing_auth_config_logged = True
+    logger.error(
+        "AUTH_ENABLED is true but no API_TOKENS/JWT_SECRET are configured; "
+        "protected routes will always reject requests"
+    )
 
 
 def _reserved_short_code_segments() -> set[str]:
@@ -184,4 +226,16 @@ async def enforce_token_auth(request: Request) -> AuthContext | None:
     if not is_protected_route(method=method, path=path):
         return None
 
-    return authenticate_request(request)
+    if not _has_auth_mechanism_configured():
+        _log_missing_auth_configuration_once()
+    try:
+        return authenticate_request(request)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            logger.warning(
+                "Authentication denied method=%s path=%s reason=%s",
+                method,
+                path,
+                exc.detail,
+            )
+        raise
