@@ -93,6 +93,22 @@ def _split_pattern(pattern: str) -> tuple[str | None, str]:
     return method, path_pattern
 
 
+def _reserved_short_code_segments() -> set[str]:
+    reserved: set[str] = set()
+    for exempt_pattern in settings.AUTH_EXEMPT_ROUTE_PATTERNS:
+        expected_method, exempt_path = _split_pattern(exempt_pattern)
+        if expected_method not in (None, "GET"):
+            continue
+        if exempt_path == "/{short_code}" or exempt_path.endswith("/*"):
+            continue
+
+        segment = exempt_path.strip("/")
+        if segment and "/" not in segment:
+            reserved.add(segment)
+
+    return reserved
+
+
 def _match_path_pattern(path: str, pattern: str) -> bool:
     if pattern == path:
         return True
@@ -107,7 +123,7 @@ def _match_path_pattern(path: str, pattern: str) -> bool:
         segment = path.strip("/")
         if not segment or "/" in segment:
             return False
-        reserved = {"health", "docs", "redoc", "openapi.json", "favicon.ico"}
+        reserved = _reserved_short_code_segments()
         return segment not in reserved
 
     return False

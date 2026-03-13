@@ -3,6 +3,9 @@ import logging
 import pytest
 from httpx import AsyncClient
 
+from app.config import settings
+from app.security import is_exempt_route
+
 
 @pytest.mark.asyncio
 class TestTokenSecurity:
@@ -79,3 +82,17 @@ class TestTokenSecurity:
     ):
         response = await unauthenticated_client.options("/api/urls")
         assert response.status_code != 401
+
+
+class TestRoutePatternMatching:
+    def test_custom_exempt_get_route_is_reserved_from_short_code_matching(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            settings,
+            "AUTH_EXEMPT_ROUTE_PATTERNS",
+            ["GET /health", "GET /preview", "GET /{short_code}"],
+        )
+
+        assert is_exempt_route("GET", "/preview") is True
+        assert is_exempt_route("POST", "/preview") is False
