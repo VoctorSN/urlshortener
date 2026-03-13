@@ -3,9 +3,13 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.config import settings
 from app.database import Base, get_db
 from app.dependencies import limiter
 from app.main import create_app
+
+TEST_API_TOKEN = "test-api-token"
+TEST_JWT_SECRET = "test-jwt-secret-with-minimum-32-bytes"
 
 
 @pytest_asyncio.fixture
@@ -24,9 +28,38 @@ async def db_session():
     await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def configure_auth_settings() -> None:
+    """Use deterministic auth configuration for tests."""
+    settings.AUTH_ENABLED = True
+    settings.API_TOKENS = [TEST_API_TOKEN]
+    settings.JWT_SECRET = TEST_JWT_SECRET
+    settings.JWT_ALGORITHM = "HS256"
+    settings.JWT_AUDIENCE = None
+
+
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession):
-    """Create an async test client with the test database injected."""
+    """Create an async test client with auth header and test DB injected."""
+    app = create_app()
+
+    async def override_get_db():  # type: ignore[no-untyped-def]
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    headers = {"Authorization": f"Bearer {TEST_API_TOKEN}"}
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers=headers,
+    ) as ac:
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def unauthenticated_client(db_session: AsyncSession):
+    """Create a client without auth header for auth tests."""
     app = create_app()
 
     async def override_get_db():  # type: ignore[no-untyped-def]
@@ -36,6 +69,15 @@ async def client(db_session: AsyncSession):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
         yield ac
+
+
+@pytest.fixture
+def jwt_token() -> str:
+    """Generate a valid JWT token for auth tests."""
+    import jwt
+
+    payload = {"sub": "test-user"}
+    return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
 
 
 @pytest.fixture

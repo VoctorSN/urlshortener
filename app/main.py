@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -9,6 +9,7 @@ from app.database import dispose_db, init_db
 from app.dependencies import limiter
 from app.exceptions import register_exception_handlers
 from app.routers import analytics, health, qrcode, redirect, urls
+from app.security import enforce_token_auth
 
 
 @asynccontextmanager
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
         ),
         version="1.0.0",
         lifespan=lifespan,
+        dependencies=[Depends(enforce_token_auth)],
     )
 
     # Rate limiting

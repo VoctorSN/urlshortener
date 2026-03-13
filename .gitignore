@@ -32,4 +32,3 @@ htmlcov/
 .atl/
 venv/
 testsprite_tests/tmp/
-security.md
