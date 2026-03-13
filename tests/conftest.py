@@ -1,3 +1,5 @@
+from collections.abc import Generator
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -29,13 +31,13 @@ async def db_session():
 
 
 @pytest.fixture(autouse=True)
-def configure_auth_settings() -> None:
+def configure_auth_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Use deterministic auth configuration for tests."""
-    settings.AUTH_ENABLED = True
-    settings.API_TOKENS = [TEST_API_TOKEN]
-    settings.JWT_SECRET = TEST_JWT_SECRET
-    settings.JWT_ALGORITHM = "HS256"
-    settings.JWT_AUDIENCE = None
+    monkeypatch.setattr(settings, "AUTH_ENABLED", True)
+    monkeypatch.setattr(settings, "API_TOKENS", [TEST_API_TOKEN])
+    monkeypatch.setattr(settings, "JWT_SECRET", TEST_JWT_SECRET)
+    monkeypatch.setattr(settings, "JWT_ALGORITHM", "HS256")
+    monkeypatch.setattr(settings, "JWT_AUDIENCE", None)
 
 
 @pytest_asyncio.fixture
@@ -87,7 +89,7 @@ def sample_url() -> dict[str, str]:
 
 
 @pytest.fixture(autouse=True)
-def reset_rate_limiter() -> None:
+def reset_rate_limiter() -> Generator[None, None, None]:
     """Ensure rate limit counters do not leak across tests."""
     limiter.reset()
     yield
