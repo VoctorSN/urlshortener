@@ -77,10 +77,7 @@ jobs:
       - name: Run TestSprite tests against local Docker
         run: |
           set -e
-          for f in testsprite_tests/TC*.py; do
-            echo "▶ Running $f"
-            python "$f"
-          done
+          pytest tests/ -v --maxfail=1 --disable-warnings
 
       - name: Show container status and logs
         if: always()
