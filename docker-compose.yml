@@ -1,4 +1,21 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: urlshortener-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: urlshortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   api:
     build:
       context: .
@@ -6,13 +23,14 @@ services:
     container_name: urlshortener-api
     ports:
       - "8000:8000"
-    volumes:
-      - db-data:/app/data
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/urlshortener.db
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/urlshortener
       - BASE_URL=http://localhost:8000
       - DEFAULT_RATE_LIMIT=60/minute
       - PYTHONPATH=/app
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test:
@@ -28,5 +46,5 @@ services:
       start_period: 10s
 
 volumes:
-  db-data:
+  pg-data:
     driver: local

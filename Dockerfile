@@ -26,8 +26,8 @@ COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data && chown -R appuser:appuser /app
+# Set ownership for app directory
+RUN chown -R appuser:appuser /app
 
 USER appuser
 
